@@ -17,7 +17,7 @@ This project is a Spring Boot based university management system. It contains tw
 - Swagger / OpenAPI
 - Docker support
 
-## Main Features
+## Main features
 
 - Create, read, update, and delete students
 - Create, read, update, and delete courses
@@ -28,7 +28,7 @@ This project is a Spring Boot based university management system. It contains tw
 - Retrieve courses associated with a student by student name
 - Azerbaijani Swagger API documentation
 
-## Running the Project
+## Running the project
 
 From the root folder:
 
