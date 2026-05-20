@@ -6,10 +6,9 @@ import az.edu.ada.wm2.studentservice.model.dto.StudentResponseDto;
 import az.edu.ada.wm2.studentservice.model.entity.Student;
 import az.edu.ada.wm2.studentservice.repository.StudentRepository;
 import az.edu.ada.wm2.studentservice.service.StudentService;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -66,5 +65,14 @@ public class StudentServiceImpl implements StudentService {
                 .orElseThrow(() -> new RuntimeException("Student not found with id: " + id));
 
         studentRepository.delete(student);
+    }
+
+    @Override
+    public List<StudentResponseDto> searchStudentsByName(String name) {
+        return studentRepository
+                .findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCase(name, name)
+                .stream()
+                .map(studentMapper::toDto)
+                .toList();
     }
 }
