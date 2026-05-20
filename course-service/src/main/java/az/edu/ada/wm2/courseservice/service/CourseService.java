@@ -43,6 +43,7 @@ public class CourseService {
                 .title(requestDto.getTitle())
                 .code(requestDto.getCode())
                 .credits(requestDto.getCredits())
+                .prerequisiteCourseId(requestDto.getPrerequisiteCourseId())
                 .build();
 
         Course savedCourse = courseRepository.save(course);
@@ -67,6 +68,7 @@ public class CourseService {
         existingCourse.setTitle(requestDto.getTitle());
         existingCourse.setCode(requestDto.getCode());
         existingCourse.setCredits(requestDto.getCredits());
+        existingCourse.setPrerequisiteCourseId(requestDto.getPrerequisiteCourseId());
 
         Course updatedCourse = courseRepository.save(existingCourse);
         return toCourseResponseDto(updatedCourse);
@@ -78,14 +80,14 @@ public class CourseService {
     }
 
     public EnrollmentResponseDto enrollStudent(Long courseId, Long studentId) {
-        log.debug("Enrolling student {} into course {}", studentId, courseId);
-        findCourseOrThrow(courseId);
+        Course course = findCourseOrThrow(courseId);
 
         if (enrollmentRepository.existsByCourseIdAndStudentId(courseId, studentId)) {
             throw new EnrollmentAlreadyExistsException(courseId, studentId);
         }
 
         validateStudentWithFeign(studentId);
+        validatePrerequisite(course, studentId);
 
         Enrollment enrollment = Enrollment.builder()
                 .courseId(courseId)
@@ -100,12 +102,11 @@ public class CourseService {
                 savedEnrollment.getCourseId(),
                 savedEnrollment.getStudentId(),
                 savedEnrollment.getEnrollmentDate(),
-                "Student enrolled successfully."
+                "Tələbə kursa uğurla qeydiyyatdan keçirildi."
         );
     }
 
     public CourseStudentsResponseDto getCourseStudents(Long courseId) {
-        log.debug("Fetching students for course {}", courseId);
         Course course = findCourseOrThrow(courseId);
 
         List<Long> studentIds = enrollmentRepository.findByCourseId(courseId)
@@ -120,9 +121,47 @@ public class CourseService {
         return new CourseStudentsResponseDto(course.getId(), course.getTitle(), students);
     }
 
+    public List<CourseResponseDto> getCoursesByStudentName(String name) {
+        List<StudentDto> students = studentFeignClient.searchStudentsByName(name);
+
+        List<Long> studentIds = students.stream()
+                .map(StudentDto::getId)
+                .toList();
+
+        return studentIds.stream()
+                .flatMap(studentId -> enrollmentRepository.findByStudentId(studentId).stream())
+                .map(Enrollment::getCourseId)
+                .distinct()
+                .map(this::findCourseOrThrow)
+                .map(this::toCourseResponseDto)
+                .toList();
+    }
+
+    private void validatePrerequisite(Course course, Long studentId) {
+        Long prerequisiteCourseId = course.getPrerequisiteCourseId();
+
+        if (prerequisiteCourseId == null) {
+            return;
+        }
+
+        findCourseOrThrow(prerequisiteCourseId);
+
+        boolean prerequisiteCompleted = enrollmentRepository.existsByCourseIdAndStudentId(
+                prerequisiteCourseId,
+                studentId
+        );
+
+        if (!prerequisiteCompleted) {
+            throw new IllegalStateException(
+                    "Bu kursa yazılmaq üçün əvvəlcə prerequisiteCourseId="
+                            + prerequisiteCourseId
+                            + " olan kurs tamamlanmalıdır."
+            );
+        }
+    }
+
     private void validateStudentWithFeign(Long studentId) {
         try {
-            log.debug("Validating student {} via Feign", studentId);
             studentFeignClient.getStudentById(studentId);
         } catch (FeignException.NotFound ex) {
             throw new RemoteStudentNotFoundException(studentId);
@@ -134,7 +173,6 @@ public class CourseService {
     private StudentDto fetchStudentWithRestTemplate(Long studentId) {
         String url = studentServiceBaseUrl + "/api/v1/students/" + studentId;
         try {
-            log.debug("Fetching student {} via RestTemplate", studentId);
             return restTemplate.getForObject(url, StudentDto.class);
         } catch (HttpClientErrorException.NotFound ex) {
             throw new RemoteStudentNotFoundException(studentId);
@@ -144,7 +182,6 @@ public class CourseService {
     }
 
     private Course findCourseOrThrow(Long id) {
-        log.debug("Looking up course {}", id);
         return courseRepository.findById(id).orElseThrow(() -> new CourseNotFoundException(id));
     }
 
@@ -153,7 +190,8 @@ public class CourseService {
                 course.getId(),
                 course.getTitle(),
                 course.getCode(),
-                course.getCredits()
+                course.getCredits(),
+                course.getPrerequisiteCourseId()
         );
     }
 }

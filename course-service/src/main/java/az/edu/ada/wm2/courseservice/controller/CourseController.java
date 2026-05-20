@@ -12,44 +12,36 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/courses")
 @RequiredArgsConstructor
-@Tag(name = "Courses", description = "Course CRUD and enrollment endpoints")
+@Tag(name = "Kurslar", description = "Kursların idarə edilməsi, tələbə qeydiyyatı və axtarış endpoint-ləri")
 public class CourseController {
 
     private final CourseService courseService;
 
     @PostMapping
-    @Operation(summary = "Create course", description = "Creates a new course.")
+    @Operation(summary = "Yeni kurs yarat", description = "Sistemdə yeni kurs yaradır. Kurs üçün ilkin tələb olunan kurs ID-si də göndərilə bilər.")
     public ResponseEntity<CourseResponseDto> createCourse(@Valid @RequestBody CourseRequestDto requestDto) {
-        CourseResponseDto createdCourse = courseService.createCourse(requestDto);
-        return new ResponseEntity<>(createdCourse, HttpStatus.CREATED);
+        return new ResponseEntity<>(courseService.createCourse(requestDto), HttpStatus.CREATED);
     }
 
     @GetMapping
-    @Operation(summary = "Get all courses", description = "Returns all courses.")
+    @Operation(summary = "Bütün kursları göstər", description = "Sistemdə olan bütün kursların siyahısını qaytarır.")
     public ResponseEntity<List<CourseResponseDto>> getAllCourses() {
         return ResponseEntity.ok(courseService.getAllCourses());
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Get course by id", description = "Returns a single course by id.")
+    @Operation(summary = "Kursu ID ilə göstər", description = "Verilmiş ID-yə uyğun kurs məlumatlarını qaytarır.")
     public ResponseEntity<CourseResponseDto> getCourseById(@PathVariable Long id) {
         return ResponseEntity.ok(courseService.getCourseById(id));
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Update course", description = "Updates a course by id.")
+    @Operation(summary = "Kursu yenilə", description = "Kursun adını, kodunu, kredit sayını və ilkin tələb olunan kurs ID-sini yeniləyir.")
     public ResponseEntity<CourseResponseDto> updateCourse(
             @PathVariable Long id,
             @Valid @RequestBody CourseRequestDto requestDto) {
@@ -57,7 +49,7 @@ public class CourseController {
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Delete course", description = "Deletes a course by id.")
+    @Operation(summary = "Kursu sil", description = "Verilmiş ID-yə uyğun kursu sistemdən silir.")
     public ResponseEntity<Void> deleteCourse(@PathVariable Long id) {
         courseService.deleteCourse(id);
         return ResponseEntity.noContent().build();
@@ -65,22 +57,30 @@ public class CourseController {
 
     @PostMapping("/{courseId}/students/{studentId}")
     @Operation(
-            summary = "Enroll student",
-            description = "Enrolls a student into a course after validating the student via Feign client."
+            summary = "Tələbəni kursa qeydiyyatdan keçir",
+            description = "Tələbəni kursa yazır, qeydiyyat tarixini saxlayır və kursun ilkin tələbini yoxlayır."
     )
     public ResponseEntity<EnrollmentResponseDto> enrollStudent(
             @PathVariable Long courseId,
             @PathVariable Long studentId) {
-        EnrollmentResponseDto responseDto = courseService.enrollStudent(courseId, studentId);
-        return new ResponseEntity<>(responseDto, HttpStatus.CREATED);
+        return new ResponseEntity<>(courseService.enrollStudent(courseId, studentId), HttpStatus.CREATED);
     }
 
     @GetMapping("/{courseId}/students")
     @Operation(
-            summary = "List course students",
-            description = "Returns detailed student data by calling student-service through RestTemplate."
+            summary = "Kursa yazılmış tələbələri göstər",
+            description = "Verilmiş kursa qeydiyyatdan keçmiş tələbələrin məlumatlarını qaytarır."
     )
     public ResponseEntity<CourseStudentsResponseDto> getCourseStudents(@PathVariable Long courseId) {
         return ResponseEntity.ok(courseService.getCourseStudents(courseId));
+    }
+
+    @GetMapping("/by-student-name")
+    @Operation(
+            summary = "Tələbə adına görə kursları göstər",
+            description = "Tələbənin adına və ya soyadına görə həmin tələbəyə bağlı kursları qaytarır."
+    )
+    public ResponseEntity<List<CourseResponseDto>> getCoursesByStudentName(@RequestParam String name) {
+        return ResponseEntity.ok(courseService.getCoursesByStudentName(name));
     }
 }
